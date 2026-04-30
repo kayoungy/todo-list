@@ -103,6 +103,8 @@ list.addEventListener('click', (e) => {
   render()
 })
 
+// Add affordance to communicate that the user can edit the todo. Double-click is not evident to some users.
+
 list.addEventListener('dblclick', (e) => {
   if (!e.target.matches('.todo-text')) return
   const id = idOf(e.target)
