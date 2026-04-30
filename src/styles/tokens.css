@@ -1,32 +1,58 @@
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --text-muted: #a8a3ad;
+  /* Color — surface */
   --bg: #fff;
   --surface: #fafafa;
   --border: #e5e4e7;
+
+  /* Color — text */
+  --text: #6b6375;
+  --text-h: #08060d;
+  --text-muted: #a8a3ad;
+
+  /* Color — accent */
   --accent: #aa3bff;
   --accent-bg: rgba(170, 59, 255, 0.1);
   --accent-border: rgba(170, 59, 255, 0.5);
+
+  /* Color — feedback */
   --danger: #d64545;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
 
-  --radius: 6px;
+  /* Typography */
+  --font-body: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+  --text-2xl: 28px;
+
+  /* Radius */
   --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --text-muted: #6b7280;
     --bg: #16171d;
     --surface: #1f2028;
     --border: #2e303a;
+
+    --text: #9ca3af;
+    --text-h: #f3f4f6;
+    --text-muted: #6b7280;
+
     --accent: #c084fc;
     --accent-bg: rgba(192, 132, 252, 0.15);
     --accent-border: rgba(192, 132, 252, 0.5);
+
     --danger: #f87171;
   }
 }

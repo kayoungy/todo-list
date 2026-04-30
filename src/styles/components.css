@@ -6,15 +6,15 @@
 
 .todo-form {
   display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
 }
 
 .todo-input {
   flex: 1;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   background: var(--bg);
   outline: none;
   transition: border-color 120ms, box-shadow 120ms;
@@ -30,9 +30,9 @@
 }
 
 .todo-add {
-  padding: 10px 16px;
+  padding: 10px var(--space-md);
   border: 1px solid transparent;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   background: var(--accent-bg);
   color: var(--accent);
   transition: border-color 120ms, background 120ms;
@@ -55,10 +55,10 @@
 
 .todo-empty {
   display: none;
-  margin: 24px 0 0;
+  margin: var(--space-lg) 0 0;
   text-align: center;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .todo-list:empty + .todo-empty {
@@ -69,7 +69,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 8px;
+  padding: 10px var(--space-sm);
   border-bottom: 1px solid var(--border);
   border-radius: var(--radius-sm);
   transition: background 120ms;
@@ -121,8 +121,8 @@
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 16px;
-  padding: 4px 8px;
+  font-size: var(--text-md);
+  padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
   line-height: 1;
   opacity: 0.6;
