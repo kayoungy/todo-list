@@ -20,18 +20,20 @@ document.querySelector('#app').innerHTML = `
         type="text"
         placeholder="What needs doing?"
         autocomplete="off"
-        autofocus
       />
       <button class="todo-add" type="submit">Add</button>
     </form>
 
     <ul class="todo-list" id="todo-list"></ul>
+    <p class="todo-empty">No todos yet</p>
   </main>
 `
 
 const form = document.querySelector('#todo-form')
 const input = document.querySelector('#todo-input')
 const list = document.querySelector('#todo-list')
+
+input.focus()
 
 function escapeHtml(s) {
   return s
@@ -64,8 +66,9 @@ function renderItem(t) {
     ? `<input class="todo-edit-input" type="text" value="${escapeHtml(t.text)}" />`
     : `<span class="todo-text">${escapeHtml(t.text)}</span>`
 
+  const cls = `todo-item${t.done ? ' is-done' : ''}`
   return `
-    <li class="todo-item" data-id="${t.id}">
+    <li class="${cls}" data-id="${t.id}">
       ${checkbox}
       ${middle}
       ${deleteBtn}

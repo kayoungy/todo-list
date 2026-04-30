@@ -72,8 +72,8 @@ User-typed text is escaped before injection (`escapeHtml`) — without it, a tod
 - [x] **Step 2 — Static markup.** Heading, form, empty `<ul>` rendered from `main.js`. (Landed inside step 1.)
 - [x] **Step 3 — Add.** `todos.js` with `addTodo()`; form submit handler; `render()` rebuilds list from array; checkbox + delete button render but inert. HTML escaping in place.
 - [x] **Step 4 — Toggle, delete, edit.** Event delegation on `#todo-list` with `change` (toggle), `click` (delete), `dblclick` (start edit), `keydown` (Enter saves, Esc cancels), `focusout` (blur saves). Edit state stored as `editing: true` on the todo. Empty edit deletes the todo.
-- [ ] **Step 5 — Style.** Flesh out tokens + layout. Completed state (strikethrough, muted). Hover/focus on input, button, delete, item.
-- [ ] **Step 6 — Polish.** Empty state ("No todos yet"). Confirm Enter-to-add, autofocus, refocus-after-add still work.
+- [x] **Step 5 — Style.** Completed state (`.is-done` strikethrough + muted). Native checkbox tinted with `accent-color`. Hover background on rows. Focus rings on input + Add (visible halo) and focus-visible outlines on checkbox + delete. Delete button fades in on row hover. 120ms transitions throughout.
+- [x] **Step 6 — Polish.** Empty state ("No todos yet") shown via CSS `:empty` adjacent-sibling selector — no JS render changes. Replaced fragile `autofocus` attribute (unreliable on innerHTML-inserted elements) with explicit `input.focus()` on init. Enter-to-add (form submit) and refocus-after-add (in submit handler) verified.
 
 Each step = one commit.
 
