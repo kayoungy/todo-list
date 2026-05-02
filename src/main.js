@@ -158,10 +158,28 @@ list.addEventListener('focusout', (e) => {
   render()
 })
 
+let user = null
+
+async function ensureSession() {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session) {
+    user = session.user
+    return
+  }
+  const { data, error } = await supabase.auth.signInAnonymously()
+  if (error) {
+    console.error('Failed to sign in anonymously:', error)
+    return
+  }
+  user = data.user
+}
+
 async function loadTodos() {
+  if (!user) return
   const { data, error } = await supabase
     .from('todos')
     .select('id, text, is_complete, created_at')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: true })
   if (error) {
     console.error('Failed to load todos:', error)
@@ -172,4 +190,5 @@ async function loadTodos() {
   render()
 }
 
-loadTodos()
+await ensureSession()
+await loadTodos()
