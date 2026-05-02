@@ -1,9 +1,7 @@
 import './styles/index.css'
+import { supabase } from './supabase.js'
 import {
   todos,
-  addTodo,
-  toggleTodo,
-  removeTodo,
   startEdit,
   commitEdit,
   cancelEdit,
@@ -50,7 +48,7 @@ function renderItem(t) {
       type="checkbox"
       class="todo-check"
       data-action="toggle"
-      ${t.done ? 'checked' : ''}
+      ${t.is_complete ? 'checked' : ''}
     />
   `
   const deleteBtn = `
@@ -66,7 +64,7 @@ function renderItem(t) {
     ? `<input class="todo-edit-input" type="text" value="${escapeHtml(t.text)}" />`
     : `<span class="todo-text">${escapeHtml(t.text)}</span>`
 
-  const cls = `todo-item${t.done ? ' is-done' : ''}`
+  const cls = `todo-item${t.is_complete ? ' is-done' : ''}`
   return `
     <li class="${cls}" data-id="${t.id}">
       ${checkbox}
@@ -82,25 +80,52 @@ function render() {
 
 const idOf = (el) => el.closest('[data-id]')?.dataset.id
 
-form.addEventListener('submit', (e) => {
+form.addEventListener('submit', async (e) => {
   e.preventDefault()
-  if (addTodo(input.value)) {
-    input.value = ''
-    render()
+  const text = input.value.trim()
+  if (!text) {
+    input.focus()
+    return
   }
+  const { error } = await supabase
+    .from('todos')
+    .insert({ text })
+    .select()
+  if (error) {
+    console.error('Failed to add todo:', error)
+    return
+  }
+  input.value = ''
+  await loadTodos()
   input.focus()
 })
 
-list.addEventListener('change', (e) => {
+list.addEventListener('change', async (e) => {
   if (!e.target.matches('[data-action="toggle"]')) return
-  toggleTodo(idOf(e.target))
-  render()
+  const id = idOf(e.target)
+  const { error } = await supabase
+    .from('todos')
+    .update({ is_complete: e.target.checked })
+    .eq('id', id)
+  if (error) {
+    console.error('Failed to toggle todo:', error)
+    return
+  }
+  await loadTodos()
 })
 
-list.addEventListener('click', (e) => {
+list.addEventListener('click', async (e) => {
   if (!e.target.matches('[data-action="delete"]')) return
-  removeTodo(idOf(e.target))
-  render()
+  const id = idOf(e.target)
+  const { error } = await supabase
+    .from('todos')
+    .delete()
+    .eq('id', id)
+  if (error) {
+    console.error('Failed to delete todo:', error)
+    return
+  }
+  await loadTodos()
 })
 
 list.addEventListener('dblclick', (e) => {
@@ -133,4 +158,18 @@ list.addEventListener('focusout', (e) => {
   render()
 })
 
-render()
+async function loadTodos() {
+  const { data, error } = await supabase
+    .from('todos')
+    .select('id, text, is_complete, created_at')
+    .order('created_at', { ascending: true })
+  if (error) {
+    console.error('Failed to load todos:', error)
+    return
+  }
+  todos.length = 0
+  todos.push(...data)
+  render()
+}
+
+loadTodos()
