@@ -24,12 +24,15 @@ document.querySelector('#app').innerHTML = `
 
     <ul class="todo-list" id="todo-list"></ul>
     <p class="todo-empty">No todos yet</p>
+
+    <section class="auth" id="auth"></section>
   </main>
 `
 
 const form = document.querySelector('#todo-form')
 const input = document.querySelector('#todo-input')
 const list = document.querySelector('#todo-list')
+const auth = document.querySelector('#auth')
 
 input.focus()
 
@@ -159,20 +162,68 @@ list.addEventListener('focusout', (e) => {
 })
 
 let user = null
+let authMode = 'signup'
 
-async function ensureSession() {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session) {
-    user = session.user
+function renderAuth() {
+  if (!user) {
+    auth.innerHTML = ''
     return
   }
-  const { data, error } = await supabase.auth.signInAnonymously()
-  if (error) {
-    console.error('Failed to sign in anonymously:', error)
-    return
+  if (user.is_anonymous) {
+    const isSignUp = authMode === 'signup'
+    auth.innerHTML = `
+      <h2 class="auth-title">${isSignUp ? 'Create account' : 'Sign in'}</h2>
+      <form class="auth-form" id="auth-form">
+        <input class="auth-input" id="auth-email" type="email" placeholder="Email" autocomplete="email" required />
+        <input class="auth-input" id="auth-password" type="password" placeholder="Password" autocomplete="${isSignUp ? 'new-password' : 'current-password'}" required />
+        <button class="auth-submit" type="submit">${isSignUp ? 'Sign up' : 'Sign in'}</button>
+      </form>
+      <button class="auth-toggle" type="button" id="auth-toggle">
+        ${isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+      </button>
+      <p class="auth-status" id="auth-status"></p>
+    `
+  } else {
+    auth.innerHTML = `
+      <p class="auth-info">Signed in as <strong>${escapeHtml(user.email)}</strong></p>
+      <button class="auth-signout" type="button" id="auth-signout">Sign out</button>
+    `
   }
-  user = data.user
 }
+
+auth.addEventListener('click', async (e) => {
+  if (e.target.id === 'auth-toggle') {
+    authMode = authMode === 'signup' ? 'signin' : 'signup'
+    renderAuth()
+  } else if (e.target.id === 'auth-signout') {
+    const { error } = await supabase.auth.signOut()
+    if (error) console.error('Failed to sign out:', error)
+  }
+})
+
+auth.addEventListener('submit', async (e) => {
+  if (e.target.id !== 'auth-form') return
+  e.preventDefault()
+  const email = document.querySelector('#auth-email').value
+  const password = document.querySelector('#auth-password').value
+  const status = document.querySelector('#auth-status')
+
+  if (authMode === 'signup') {
+    const { data, error } = await supabase.auth.signUp({ email, password })
+    if (error) {
+      status.textContent = error.message
+      return
+    }
+    if (!data.session) {
+      status.textContent = 'Check your email to confirm your account.'
+    }
+  } else {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      status.textContent = error.message
+    }
+  }
+})
 
 async function loadTodos() {
   if (!user) return
@@ -190,5 +241,17 @@ async function loadTodos() {
   render()
 }
 
-await ensureSession()
-await loadTodos()
+supabase.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'TOKEN_REFRESHED') return
+
+  if (session) {
+    user = session.user
+    renderAuth()
+    await loadTodos()
+    return
+  }
+
+  user = null
+  const { error } = await supabase.auth.signInAnonymously()
+  if (error) console.error('Failed to sign in anonymously:', error)
+})
