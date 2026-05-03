@@ -35,8 +35,10 @@
 
   /* Radius */
   --radius-sm: 8px;
-  --radius-md: 999px;
+  --radius-md: 12px;
   --radius-lg: 20px;
+  /** Fully rounded controls (inputs, primary buttons). */
+  --radius-pill: 999px;
 }
 
 @media (prefers-color-scheme: dark) {

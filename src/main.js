@@ -9,7 +9,12 @@ import {
 
 document.querySelector('#app').innerHTML = `
   <main class="todo">
-    <h1>Todo</h1>
+    <header class="todo-header">
+      <h1>Todo</h1>
+      <div class="auth-trigger" id="auth-trigger"></div>
+    </header>
+
+    <section class="auth" id="auth"></section>
 
     <form class="todo-form" id="todo-form">
       <input
@@ -24,8 +29,6 @@ document.querySelector('#app').innerHTML = `
 
     <ul class="todo-list" id="todo-list"></ul>
     <p class="todo-empty">No todos yet</p>
-
-    <section class="auth" id="auth"></section>
   </main>
 `
 
@@ -33,6 +36,7 @@ const form = document.querySelector('#todo-form')
 const input = document.querySelector('#todo-input')
 const list = document.querySelector('#todo-list')
 const auth = document.querySelector('#auth')
+const authTrigger = document.querySelector('#auth-trigger')
 
 input.focus()
 
@@ -166,38 +170,64 @@ list.addEventListener('focusout', (e) => {
 
 let user = null
 let authMode = 'signup'
+let authExpanded = false
 
 function renderAuth() {
   if (!user) {
+    authTrigger.innerHTML = ''
     auth.innerHTML = ''
     return
   }
-  if (user.is_anonymous) {
-    const isSignUp = authMode === 'signup'
-    auth.innerHTML = `
-      <h2 class="auth-title">${isSignUp ? 'Create account' : 'Sign in'}</h2>
-      <form class="auth-form" id="auth-form">
-        <input class="auth-input" id="auth-email" type="email" placeholder="Email" autocomplete="email" required />
-        <input class="auth-input" id="auth-password" type="password" placeholder="Password" autocomplete="${isSignUp ? 'new-password' : 'current-password'}" required />
-        <button class="auth-submit" type="submit">${isSignUp ? 'Sign up' : 'Sign in'}</button>
-      </form>
-      <button class="auth-toggle" type="button" id="auth-toggle">
-        ${isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-      </button>
-      <p class="auth-status" id="auth-status"></p>
-    `
-  } else {
-    auth.innerHTML = `
-      <p class="auth-info">Signed in as <strong>${escapeHtml(user.email)}</strong></p>
+
+  if (!user.is_anonymous) {
+    authTrigger.innerHTML = `
+      <span class="auth-email">${escapeHtml(user.email)}</span>
       <button class="auth-signout" type="button" id="auth-signout">Sign out</button>
     `
+    auth.innerHTML = ''
+    return
   }
+
+  if (!authExpanded) {
+    const nudge = todos.length >= 3 ? ' is-nudge' : ''
+    authTrigger.innerHTML = `
+      <button class="auth-trigger-btn${nudge}" type="button" id="auth-expand">Save your list</button>
+    `
+    auth.innerHTML = ''
+    return
+  }
+
+  const isSignUp = authMode === 'signup'
+  authTrigger.innerHTML = `
+    <button class="auth-trigger-btn" type="button" id="auth-collapse">Cancel</button>
+  `
+  auth.innerHTML = `
+    <h2 class="auth-title">${isSignUp ? 'Create an account to save your list across devices' : 'Sign in'}</h2>
+    <form class="auth-form" id="auth-form">
+      <input class="auth-input" id="auth-email" type="email" placeholder="Email" autocomplete="email" required />
+      <input class="auth-input" id="auth-password" type="password" placeholder="Password" autocomplete="${isSignUp ? 'new-password' : 'current-password'}" required />
+      <button class="auth-submit" type="submit">${isSignUp ? 'Sign up' : 'Sign in'}</button>
+    </form>
+    <button class="auth-toggle" type="button" id="auth-toggle">
+      ${isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+    </button>
+    <p class="auth-status" id="auth-status"></p>
+  `
 }
 
-auth.addEventListener('click', async (e) => {
-  if (e.target.id === 'auth-toggle') {
+document.addEventListener('click', async (e) => {
+  if (e.target.id === 'auth-expand') {
+    authExpanded = true
+    authMode = 'signup'
+    renderAuth()
+    document.querySelector('#auth-email')?.focus()
+  } else if (e.target.id === 'auth-collapse') {
+    authExpanded = false
+    renderAuth()
+  } else if (e.target.id === 'auth-toggle') {
     authMode = authMode === 'signup' ? 'signin' : 'signup'
     renderAuth()
+    document.querySelector('#auth-email')?.focus()
   } else if (e.target.id === 'auth-signout') {
     const { error } = await supabase.auth.signOut()
     if (error) console.error('Failed to sign out:', error)
@@ -242,6 +272,7 @@ async function loadTodos() {
   todos.length = 0
   todos.push(...data)
   render()
+  renderAuth()
 }
 
 supabase.auth.onAuthStateChange(async (event, session) => {
@@ -249,12 +280,14 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 
   if (session) {
     user = session.user
+    if (!user.is_anonymous) authExpanded = false
     renderAuth()
     await loadTodos()
     return
   }
 
   user = null
+  authExpanded = false
   const { error } = await supabase.auth.signInAnonymously()
   if (error) console.error('Failed to sign in anonymously:', error)
 })
