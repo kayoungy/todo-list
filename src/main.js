@@ -78,7 +78,10 @@ function renderItem(t) {
 }
 
 function render() {
-  list.innerHTML = todos.map(renderItem).join('')
+  const sorted = [...todos].sort(
+    (a, b) => Number(a.is_complete) - Number(b.is_complete),
+  )
+  list.innerHTML = sorted.map(renderItem).join('')
 }
 
 const idOf = (el) => el.closest('[data-id]')?.dataset.id
