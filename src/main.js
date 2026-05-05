@@ -1,44 +1,50 @@
 import './styles/index.css'
 import { supabase } from './supabase.js'
-import {
-  todos,
-  startEdit,
-  commitEdit,
-  cancelEdit,
-} from './todos.js'
+import { todos } from './todos.js'
 
 document.querySelector('#app').innerHTML = `
   <main class="todo">
     <header class="todo-header">
-      <h1>Todo</h1>
+      <h1 class="todo-date-heading">
+        <span id="todo-date"></span>
+        <span class="todo-title-label">todos</span>
+      </h1>
       <div class="auth-trigger" id="auth-trigger"></div>
     </header>
 
     <section class="auth" id="auth"></section>
 
-    <form class="todo-form" id="todo-form">
+    <div class="todo-draft">
+      <span class="todo-draft-check" aria-hidden="true"></span>
       <input
-        class="todo-input"
-        id="todo-input"
+        class="todo-draft-input"
+        id="todo-draft-input"
         type="text"
-        placeholder="What needs doing?"
+        placeholder=" "
         autocomplete="off"
       />
-      <button class="todo-add" type="submit">Add</button>
-    </form>
+    </div>
 
     <ul class="todo-list" id="todo-list"></ul>
     <p class="todo-empty">No todos yet</p>
   </main>
 `
 
-const form = document.querySelector('#todo-form')
-const input = document.querySelector('#todo-input')
+const now = new Date()
+const locale = undefined
+const weekdayShort = new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(now)
+const monthDay = new Intl.DateTimeFormat(locale, {
+  month: 'long',
+  day: 'numeric',
+}).format(now)
+document.querySelector('#todo-date').textContent = `${weekdayShort}, ${monthDay}`
+
+const draftInput = document.querySelector('#todo-draft-input')
 const list = document.querySelector('#todo-list')
 const auth = document.querySelector('#auth')
 const authTrigger = document.querySelector('#auth-trigger')
 
-input.focus()
+draftInput.focus()
 
 function escapeHtml(s) {
   return s
@@ -67,55 +73,66 @@ function renderItem(t) {
     >✕</button>
   `
 
-  const middle = t.editing
-    ? `<input class="todo-edit-input" type="text" value="${escapeHtml(t.text)}" />`
-    : `<span class="todo-text">${escapeHtml(t.text)}</span>`
-
   const cls = `todo-item${t.is_complete ? ' is-done' : ''}`
   return `
     <li class="${cls}" data-id="${t.id}">
       ${checkbox}
-      ${middle}
+      <input
+        class="todo-text-input"
+        type="text"
+        value="${escapeHtml(t.text)}"
+        data-action="edit"
+      />
       ${deleteBtn}
     </li>
   `
 }
 
 function render() {
-  const sorted = [...todos].sort(
-    (a, b) => Number(a.is_complete) - Number(b.is_complete),
-  )
+  const sorted = [...todos].sort((a, b) => {
+    if (a.is_complete !== b.is_complete) {
+      return Number(a.is_complete) - Number(b.is_complete)
+    }
+    return (a.position ?? 0) - (b.position ?? 0)
+  })
   list.innerHTML = sorted.map(renderItem).join('')
 }
 
 const idOf = (el) => el.closest('[data-id]')?.dataset.id
 
-form.addEventListener('submit', async (e) => {
+draftInput.addEventListener('keydown', async (e) => {
+  if (e.key !== 'Enter') return
   e.preventDefault()
-  const text = input.value.trim()
-  if (!text) {
-    input.focus()
-    return
-  }
+  const text = draftInput.value.trim()
+  if (!text) return
+  const maxPosition = todos.reduce((m, t) => Math.max(m, t.position ?? 0), 0)
   const { error } = await supabase
     .from('todos')
-    .insert({ text })
+    .insert({ text, position: maxPosition + 1 })
     .select()
   if (error) {
     console.error('Failed to add todo:', error)
     return
   }
-  input.value = ''
+  draftInput.value = ''
   await loadTodos()
-  input.focus()
+  draftInput.focus()
 })
 
 list.addEventListener('change', async (e) => {
   if (!e.target.matches('[data-action="toggle"]')) return
   const id = idOf(e.target)
+  const isComplete = e.target.checked
+  const update = { is_complete: isComplete }
+  if (isComplete) {
+    const maxCompletedPos = todos
+      .filter((t) => t.is_complete && String(t.id) !== String(id))
+      .reduce((m, t) => Math.max(m, t.position ?? 0), 0)
+    update.position = maxCompletedPos + 1
+  }
   const { error } = await supabase
     .from('todos')
-    .update({ is_complete: e.target.checked })
+    .update(update)
     .eq('id', id)
   if (error) {
     console.error('Failed to toggle todo:', error)
@@ -138,34 +155,135 @@ list.addEventListener('click', async (e) => {
   await loadTodos()
 })
 
-list.addEventListener('dblclick', (e) => {
-  if (!e.target.matches('.todo-text')) return
+list.addEventListener('change', async (e) => {
+  if (!e.target.matches('[data-action="edit"]')) return
   const id = idOf(e.target)
-  startEdit(id)
-  render()
-  const editInput = list.querySelector(`[data-id="${id}"] .todo-edit-input`)
-  if (editInput) {
-    editInput.focus()
-    editInput.setSelectionRange(editInput.value.length, editInput.value.length)
+  const newText = e.target.value.trim()
+  if (!newText) {
+    const { error } = await supabase.from('todos').delete().eq('id', id)
+    if (error) {
+      console.error('Failed to delete todo:', error)
+      return
+    }
+    await loadTodos()
+    return
   }
+  const { error } = await supabase
+    .from('todos')
+    .update({ text: newText })
+    .eq('id', id)
+  if (error) {
+    console.error('Failed to update todo:', error)
+    return
+  }
+  await loadTodos()
 })
 
 list.addEventListener('keydown', (e) => {
-  if (!e.target.matches('.todo-edit-input')) return
+  if (!e.target.matches('[data-action="edit"]')) return
   if (e.key === 'Enter') {
     e.preventDefault()
-    commitEdit(idOf(e.target), e.target.value)
-    render()
+    e.target.blur()
   } else if (e.key === 'Escape') {
-    cancelEdit(idOf(e.target))
-    render()
+    const id = idOf(e.target)
+    const current = todos.find((t) => String(t.id) === String(id))
+    if (current) e.target.value = current.text
+    e.target.blur()
   }
 })
 
-list.addEventListener('focusout', (e) => {
-  if (!e.target.matches('.todo-edit-input')) return
-  commitEdit(idOf(e.target), e.target.value)
-  render()
+let dragId = null
+
+list.addEventListener('mousedown', (e) => {
+  const li = e.target.closest('.todo-item')
+  if (!li) return
+  const interactive = e.target.closest('input, button')
+  li.draggable = !interactive
+})
+
+list.addEventListener('dragstart', (e) => {
+  const li = e.target.closest('.todo-item')
+  if (!li) return
+  dragId = li.dataset.id
+  e.dataTransfer.effectAllowed = 'move'
+  li.classList.add('is-dragging')
+})
+
+list.addEventListener('dragend', () => {
+  list.querySelectorAll('.is-dragging, .is-drop-above, .is-drop-below').forEach((el) => {
+    el.classList.remove('is-dragging', 'is-drop-above', 'is-drop-below')
+  })
+  dragId = null
+})
+
+function sameCategorySorted() {
+  const dragged = todos.find((t) => String(t.id) === String(dragId))
+  if (!dragged) return null
+  return [...todos]
+    .filter((t) => t.is_complete === dragged.is_complete)
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+}
+
+list.addEventListener('dragover', (e) => {
+  if (!dragId) return
+  const li = e.target.closest('.todo-item')
+  if (!li || li.dataset.id === dragId) return
+  const target = todos.find((t) => String(t.id) === String(li.dataset.id))
+  const dragged = todos.find((t) => String(t.id) === String(dragId))
+  if (!target || !dragged || target.is_complete !== dragged.is_complete) {
+    list.querySelectorAll('.is-drop-above, .is-drop-below').forEach((el) => {
+      el.classList.remove('is-drop-above', 'is-drop-below')
+    })
+    return
+  }
+  e.preventDefault()
+  e.dataTransfer.dropEffect = 'move'
+  const rect = li.getBoundingClientRect()
+  const above = e.clientY < rect.top + rect.height / 2
+  list.querySelectorAll('.is-drop-above, .is-drop-below').forEach((el) => {
+    el.classList.remove('is-drop-above', 'is-drop-below')
+  })
+  li.classList.add(above ? 'is-drop-above' : 'is-drop-below')
+})
+
+list.addEventListener('drop', async (e) => {
+  if (!dragId) return
+  e.preventDefault()
+  const targetLi = e.target.closest('.todo-item')
+  if (!targetLi || targetLi.dataset.id === dragId) return
+
+  const target = todos.find((t) => String(t.id) === String(targetLi.dataset.id))
+  const dragged = todos.find((t) => String(t.id) === String(dragId))
+  if (!target || !dragged || target.is_complete !== dragged.is_complete) return
+
+  const group = sameCategorySorted()
+  if (!group) return
+  const targetIdx = group.findIndex((t) => String(t.id) === String(target.id))
+  if (targetIdx === -1) return
+
+  const rect = targetLi.getBoundingClientRect()
+  const above = e.clientY < rect.top + rect.height / 2
+
+  let newPosition
+  if (above) {
+    const prev = group[targetIdx - 1]
+    if (prev && String(prev.id) === String(dragId)) return
+    newPosition = prev ? (prev.position + target.position) / 2 : target.position - 1
+  } else {
+    const next = group[targetIdx + 1]
+    if (next && String(next.id) === String(dragId)) return
+    newPosition = next ? (target.position + next.position) / 2 : target.position + 1
+  }
+
+  const { error } = await supabase
+    .from('todos')
+    .update({ position: newPosition })
+    .eq('id', dragId)
+  if (error) {
+    console.error('Failed to reorder:', error)
+    return
+  }
+  await loadTodos()
 })
 
 let user = null
@@ -262,9 +380,9 @@ async function loadTodos() {
   if (!user) return
   const { data, error } = await supabase
     .from('todos')
-    .select('id, text, is_complete, created_at')
+    .select('id, text, is_complete, created_at, position')
     .eq('user_id', user.id)
-    .order('created_at', { ascending: true })
+    .order('position', { ascending: true })
   if (error) {
     console.error('Failed to load todos:', error)
     return
