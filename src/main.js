@@ -275,19 +275,21 @@ async function loadTodos() {
   renderAuth()
 }
 
-supabase.auth.onAuthStateChange(async (event, session) => {
+supabase.auth.onAuthStateChange((event, session) => {
   if (event === 'TOKEN_REFRESHED') return
 
-  if (session) {
-    user = session.user
-    if (!user.is_anonymous) authExpanded = false
-    renderAuth()
-    await loadTodos()
-    return
-  }
+  setTimeout(async () => {
+    if (session) {
+      user = session.user
+      if (!user.is_anonymous) authExpanded = false
+      renderAuth()
+      await loadTodos()
+      return
+    }
 
-  user = null
-  authExpanded = false
-  const { error } = await supabase.auth.signInAnonymously()
-  if (error) console.error('Failed to sign in anonymously:', error)
+    user = null
+    authExpanded = false
+    const { error } = await supabase.auth.signInAnonymously()
+    if (error) console.error('Failed to sign in anonymously:', error)
+  }, 0)
 })

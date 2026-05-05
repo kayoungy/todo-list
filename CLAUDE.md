@@ -67,7 +67,7 @@ Rebuild `<ul>` innerHTML from `todos` on every state change. Simple, fine for hu
 User-typed text is escaped before injection (`escapeHtml`) — without it, a todo like `<img src=x onerror=...>` would actually run.
 
 ## Build steps
-
+co
 - [x] **Step 1 — Clean the scaffold.** Strip Vite starter; create `src/styles/{tokens,base,components,index}.css`; delete `counter.js`, starter assets, `public/icons.svg`. README updated to include "Edit todo text".
 - [x] **Step 2 — Static markup.** Heading, form, empty `<ul>` rendered from `main.js`. (Landed inside step 1.)
 - [x] **Step 3 — Add.** `todos.js` with `addTodo()`; form submit handler; `render()` rebuilds list from array; checkbox + delete button render but inert. HTML escaping in place.
