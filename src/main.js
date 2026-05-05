@@ -26,7 +26,6 @@ document.querySelector('#app').innerHTML = `
     </div>
 
     <ul class="todo-list" id="todo-list"></ul>
-    <p class="todo-empty">No todos yet</p>
   </main>
 `
 
@@ -289,18 +288,38 @@ list.addEventListener('drop', async (e) => {
 let user = null
 let authMode = 'signup'
 let authExpanded = false
+let authUserMenuOpen = false
 
 function renderAuth() {
   if (!user) {
+    authUserMenuOpen = false
     authTrigger.innerHTML = ''
     auth.innerHTML = ''
     return
   }
 
   if (!user.is_anonymous) {
+    const email = (user.email || '').trim()
+    const initial =
+      email.length > 0 ? escapeHtml(email[0]) : '?'
+    const menuHidden = authUserMenuOpen ? '' : ' hidden'
     authTrigger.innerHTML = `
-      <span class="auth-email">${escapeHtml(user.email)}</span>
-      <button class="auth-signout" type="button" id="auth-signout">Sign out</button>
+      <div class="auth-user-menu">
+        <button
+          type="button"
+          class="auth-avatar"
+          id="auth-avatar"
+          aria-expanded="${authUserMenuOpen}"
+          aria-haspopup="true"
+          aria-label="Account menu"
+        >
+          <span class="auth-avatar-letter">${initial}</span>
+        </button>
+        <div class="auth-user-dropdown" id="auth-user-dropdown" role="menu"${menuHidden}>
+          <p class="auth-menu-email" role="none">${escapeHtml(email)}</p>
+          <button type="button" class="auth-menu-item" role="menuitem" id="auth-signout">Sign out</button>
+        </div>
+      </div>
     `
     auth.innerHTML = ''
     return
@@ -309,7 +328,7 @@ function renderAuth() {
   if (!authExpanded) {
     const nudge = todos.length >= 3 ? ' is-nudge' : ''
     authTrigger.innerHTML = `
-      <button class="auth-trigger-btn${nudge}" type="button" id="auth-expand">Save your list</button>
+      <button class="auth-trigger-btn auth-trigger-btn--save${nudge}" type="button" id="auth-expand">Save your list</button>
     `
     auth.innerHTML = ''
     return
@@ -334,6 +353,19 @@ function renderAuth() {
 }
 
 document.addEventListener('click', async (e) => {
+  if (e.target.closest('#auth-avatar')) {
+    authUserMenuOpen = !authUserMenuOpen
+    renderAuth()
+    return
+  }
+
+  if (e.target.id === 'auth-signout') {
+    authUserMenuOpen = false
+    const { error } = await supabase.auth.signOut()
+    if (error) console.error('Failed to sign out:', error)
+    return
+  }
+
   if (e.target.id === 'auth-expand') {
     authExpanded = true
     authMode = 'signup'
@@ -346,10 +378,30 @@ document.addEventListener('click', async (e) => {
     authMode = authMode === 'signup' ? 'signin' : 'signup'
     renderAuth()
     document.querySelector('#auth-email')?.focus()
-  } else if (e.target.id === 'auth-signout') {
-    const { error } = await supabase.auth.signOut()
-    if (error) console.error('Failed to sign out:', error)
   }
+
+  if (
+    user &&
+    !user.is_anonymous &&
+    authUserMenuOpen &&
+    !e.target.closest('.auth-user-menu')
+  ) {
+    authUserMenuOpen = false
+    renderAuth()
+  }
+})
+
+document.addEventListener('keydown', (e) => {
+  if (
+    e.key !== 'Escape' ||
+    !user ||
+    user.is_anonymous ||
+    !authUserMenuOpen
+  ) {
+    return
+  }
+  authUserMenuOpen = false
+  renderAuth()
 })
 
 auth.addEventListener('submit', async (e) => {
@@ -360,13 +412,31 @@ auth.addEventListener('submit', async (e) => {
   const status = document.querySelector('#auth-status')
 
   if (authMode === 'signup') {
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    if (error) {
-      status.textContent = error.message
-      return
-    }
-    if (!data.session) {
-      status.textContent = 'Check your email to confirm your account.'
+    const {
+      data: { session: submitSession },
+    } = await supabase.auth.getSession()
+    const submitUser = submitSession?.user
+
+    // Upgrade the anonymous session in place (same user id) so existing todos stay
+    // linked. Using signUp here would create a new account and orphan guest todos.
+    if (submitUser?.is_anonymous) {
+      const { data, error } = await supabase.auth.updateUser({ email, password })
+      if (error) {
+        status.textContent = error.message
+        return
+      }
+      if (!data.session) {
+        status.textContent = 'Check your email to confirm your account.'
+      }
+    } else {
+      const { data, error } = await supabase.auth.signUp({ email, password })
+      if (error) {
+        status.textContent = error.message
+        return
+      }
+      if (!data.session) {
+        status.textContent = 'Check your email to confirm your account.'
+      }
     }
   } else {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
